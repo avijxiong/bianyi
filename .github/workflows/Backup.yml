@@ -1,0 +1,38 @@
+name: Backup
+on:
+#  schedule:
+#    - cron: "10 10 1-31/2 * *"
+#  push:
+#    branches:
+#      - main
+    repository_dispatch:
+    workflow_dispatch:
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check and release
+        run: |
+            rm -fr *
+            sudo apt update
+            sudo apt install upx git -y
+            sudo snap install go --classic
+            git clone -b dev https://github.com/SagerNet/sing-box  sing-box-core> /dev/null
+            cd sing-box-core/cmd/sing-box
+            GOOS=windows GOARCH=amd64 go build -tags with_quic,with_grpc,with_shadowsocksr,with_acme,with_clash_api,with_gvisor -trimpath -ldflags "-s -w -buildid=" -o ../../../sing-box-winamd64
+            GOOS=linux GOARCH=amd64 go build -tags with_quic,with_grpc,with_shadowsocksr,with_acme,with_clash_api,with_gvisor -trimpath -ldflags "-s -w -buildid=" -o ../../../sing-box-linuxamd64
+            GOOS=linux GOARCH=arm64 go build -tags with_quic,with_grpc,with_shadowsocksr,with_acme,with_clash_api,with_gvisor -trimpath -ldflags "-s -w -buildid=" -o ../../../sing-box-linuxarm64
+            cd ../../../
+            upx --best sing-box-linuxamd64 sing-box-linuxarm64 sing-box-winamd64
+            rm -rf sing-box-core
+            mkdir -p .github/workflows
+            wget -qO .github/workflows/Backup.yml https://github.com/${{ github.repository }}/raw/main/.github/workflows/Backup.yml &> /dev/null
+            git config --global init.defaultBranch main
+            git init
+            git add .
+            git config user.name "Mainians"
+            git config user.email "61817665+mainians@users.noreply.github.com"
+            git commit -m "singbox binary"
+            git remote add origin "https://${{ github.actor }}:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}"
+            git push origin main --force
