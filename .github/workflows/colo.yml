@@ -29,13 +29,12 @@ jobs:
     steps:
 
     - name: Set up Go 1.x
-      uses: actions/setup-go@v2
+      uses: actions/setup-go@v4
       with:
         go-version: ^1.17
-      id: go
 
     - name: Check out code into the Go module directory
-      uses: actions/checkout@v2
+      uses: actions/checkout@v4
 
     - name: Get dependencies
       working-directory: ./colo源码
@@ -50,7 +49,7 @@ jobs:
       run: go build -v -o ../colo${{ matrix.suffix }} .
 
     - name: Upload binary artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: colo-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
         path: ./colo${{ matrix.suffix }}
@@ -65,7 +64,7 @@ jobs:
         cp colo/locations.json colo_package/ || true
 
     - name: Upload complete package
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v4
       with:
         name: colo-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}-complete
         path: ./colo_package
