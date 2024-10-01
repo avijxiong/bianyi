@@ -29,16 +29,18 @@ jobs:
     steps:
 
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.20'
 
     - name: Get dependencies
       working-directory: ./colo源码
-      run: go mod download
+      run: |
+        go mod download
+        go mod tidy
 
     - name: Build
       working-directory: ./colo源码
@@ -57,13 +59,13 @@ jobs:
         cp colo/locations.json colo_package/ || true
 
     - name: Upload binary artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: colo-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
         path: ./colo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
 
     - name: Upload complete package
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: colo-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}-complete
         path: ./colo_package
@@ -74,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - name: Check out code
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Check if release exists
       id: check_release
@@ -92,14 +94,20 @@ jobs:
     - name: Create Release
       if: steps.check_release.outputs.release_exists == 'false'
       id: create_release
-      uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: ${{ github.event.inputs.version }}
-        release_name: Release ${{ github.event.inputs.version }}
-        draft: false
-        prerelease: false
+      run: |
+        response=$(curl -s -X POST \
+          -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+          -H "Accept: application/vnd.github.v3+json" \
+          https://api.github.com/repos/${{ github.repository }}/releases \
+          -d '{
+            "tag_name": "${{ github.event.inputs.version }}",
+            "name": "Release ${{ github.event.inputs.version }}",
+            "draft": false,
+            "prerelease": false
+          }')
+        echo "release_id=$(echo $response | jq -r '.id')" >> $GITHUB_OUTPUT
 
     - name: Get Release ID
       id: get_release_id
@@ -107,11 +115,11 @@ jobs:
         if [ "${{ steps.check_release.outputs.release_exists }}" == "true" ]; then
           echo "release_id=${{ steps.check_release.outputs.release_id }}" >> $GITHUB_OUTPUT
         else
-          echo "release_id=${{ steps.create_release.outputs.id }}" >> $GITHUB_OUTPUT
+          echo "release_id=${{ steps.create_release.outputs.release_id }}" >> $GITHUB_OUTPUT
         fi
 
     - name: Download all artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: Upload Release Assets
       env:
@@ -123,7 +131,6 @@ jobs:
               if [ -f "$file" ]; then
                 asset_name=$(basename "$file")
                 if [[ $asset_name == colo-* ]]; then
-                  # 重命名二进制文件以包含版本号和架构信息
                   new_asset_name="colo-${{ github.event.inputs.version }}-${asset_name#colo-}"
                 else
                   new_asset_name=$asset_name
