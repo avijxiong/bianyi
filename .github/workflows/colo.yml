@@ -45,12 +45,12 @@ jobs:
       env:
         GOOS: ${{ matrix.goos }}
         GOARCH: ${{ matrix.goarch }}
-      run: go build -v -o ../colo${{ matrix.suffix }} .
+      run: go build -v -o ../colo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }} .
 
     - name: Prepare complete package
       run: |
         mkdir -p colo_package
-        cp colo${{ matrix.suffix }} colo_package/
+        cp colo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }} colo_package/
         cp ips-v4.txt colo_package/ || true
         cp colo/ips-v4.txt colo_package/ || true
         cp colo/ips-v6.txt colo_package/ || true
@@ -60,7 +60,7 @@ jobs:
       uses: actions/upload-artifact@v3
       with:
         name: colo-${{ github.event.inputs.version }}-${{ matrix.goos }}-${{ matrix.goarch }}
-        path: ./colo${{ matrix.suffix }}
+        path: ./colo-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
 
     - name: Upload complete package
       uses: actions/upload-artifact@v3
@@ -122,12 +122,18 @@ jobs:
             for file in "$dir"/*; do
               if [ -f "$file" ]; then
                 asset_name=$(basename "$file")
-                echo "Uploading $asset_name"
+                if [[ $asset_name == colo-* ]]; then
+                  # 重命名二进制文件以包含版本号和架构信息
+                  new_asset_name="colo-${{ github.event.inputs.version }}-${asset_name#colo-}"
+                else
+                  new_asset_name=$asset_name
+                fi
+                echo "Uploading $new_asset_name"
                 curl -s -X POST \
                   -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
                   -H "Content-Type: application/octet-stream" \
                   --data-binary @"$file" \
-                  "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.get_release_id.outputs.release_id }}/assets?name=$asset_name"
+                  "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.get_release_id.outputs.release_id }}/assets?name=$new_asset_name"
               fi
             done
           fi
